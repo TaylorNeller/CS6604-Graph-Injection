@@ -16,6 +16,7 @@ from collections import Counter
 
 from GraphGAN import UnboundAttack
 from GCNModel import *
+from DetectOutlier import *
 
 n_samples = 50
 n_training_epochs = 50
@@ -39,8 +40,6 @@ train_dataset = dataset[:train_size]
 test_dataset = dataset[train_size:]
 # train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
-
-
 
 
 # Initialize the model, optimizer, and loss function
@@ -68,8 +67,6 @@ attack = UnboundAttack(
 attack.load_models('model')
 
 fake_adj, fake_features = attack.generate_attack(num_samples=n_samples)
-
-
 
 sample_data = train_dataset[0]
 has_edge_attr = hasattr(sample_data, 'edge_attr')
@@ -145,6 +142,8 @@ for i in range(num_samples):
 # combine the original and generated data
 original_data_list = [train_dataset[i] for i in range(len(train_dataset))]
 combined_dataset = original_data_list + generated_data_list
+filtered_dataset = filter_outliers(combined_dataset, len(original_data_list))
+
 # combined_dataset = [data.to('cuda') for data in combined_dataset]
 combined_loader = DataLoader(combined_dataset, batch_size=32, shuffle=True)
 print("Original dataset size:", len(original_data_list))
@@ -174,8 +173,8 @@ combined_dist = Counter(labels_combined)
 for label, count in combined_dist.items():
     print(f"Label {label}: {count}")
 
-trainer = GCNTrainer()
-trainer.train_loader = combined_loader
-trainer.test_loader = test_loader
-trainer.train_eval(n_training_epochs)
-trainer.save_model('model/victim_model_adv.pth')
+# trainer = GCNTrainer()
+# trainer.train_loader = combined_loader
+# trainer.test_loader = test_loader
+# trainer.train_eval(n_training_epochs)
+# trainer.save_model('model/victim_model_adv.pth')
