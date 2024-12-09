@@ -12,7 +12,7 @@ import networkx as nx
 
 
 class Generator(nn.Module):
-    def __init__(self, latent_dim, num_nodes, node_features, temperature=.5):
+    def __init__(self, latent_dim, num_nodes, node_features, temperature=.8):
         super(Generator, self).__init__()
         
         # Store dimensions
@@ -20,25 +20,30 @@ class Generator(nn.Module):
         self.num_nodes = num_nodes
         self.node_features = node_features
         self.temperature = temperature
-        
-        # MLPs for generating logits
+        self.hard = False
+
         self.adj_mlp = nn.Sequential(
             nn.Linear(latent_dim, 128),
             nn.ReLU(),
             nn.Linear(128, 256),
             nn.ReLU(),
-            nn.Linear(256, num_nodes * num_nodes)
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, num_nodes * num_nodes)
         )
         
         self.feat_mlp = nn.Sequential(
-            nn.Linear(latent_dim, 128),
+            nn.Linear(latent_dim, 256),
             nn.ReLU(),
-            nn.Linear(128, 256), 
+            nn.Linear(256, 512),
             nn.ReLU(),
-            nn.Linear(256, num_nodes * node_features)
+            nn.Linear(512, num_nodes * node_features)
         )
+    
+    def set_hard(self, hard):
+        self.hard = hard
 
-    def gumbel_softmax(self, logits, temperature=1.0, hard=True, dim=-1):
+    def gumbel_softmax(self, logits, temperature=1.0, dim=-1):
         """
         Sample from Gumbel-Softmax distribution
         """
@@ -49,7 +54,7 @@ class Generator(nn.Module):
         # Softmax
         y_soft = gumbels.softmax(dim)
 
-        if hard:
+        if self.hard:
             # Straight through trick
             index = y_soft.max(dim, keepdim=True)[1]
             y_hard = torch.zeros_like(logits).scatter_(dim, index, 1.0)
@@ -59,7 +64,7 @@ class Generator(nn.Module):
             
         return ret
 
-    def gumbel_sigmoid(self, logits, temperature=1.0, hard=True):
+    def gumbel_sigmoid(self, logits, temperature=1.0):
         """
         Sample from Gumbel-Sigmoid distribution
         """
@@ -68,7 +73,7 @@ class Generator(nn.Module):
         gumbel_noise = -torch.log(-torch.log(U + 1e-20) + 1e-20)
         y = logits + gumbel_noise
         y = torch.sigmoid(y / temperature)
-        if hard:
+        if self.hard:
             y_hard = (y > 0.5).float()
             y = y_hard - y.detach() + y
         return y
@@ -136,8 +141,8 @@ class Discriminator(nn.Module):
         return output  # Note: Removed sigmoid here for WGAN-GP
 
 class UnboundAttack:
-    def __init__(self, latent_dim, num_nodes, node_features, victim_model, target_degree_dist, device='cpu', beta=0.5, lambda_degree=10.0, epoch_ratio=1):
-        self.generator = Generator(latent_dim, num_nodes, node_features).to(device)
+    def __init__(self, latent_dim, num_nodes, node_features, victim_model, target_degree_dist, device='cpu', beta=0.5, lambda_degree=10.0, n_gen=1, n_critic=1, lambda_=1, temperature=.7):
+        self.generator = Generator(latent_dim, num_nodes, node_features, temperature=temperature).to(device)
         self.discriminator = Discriminator(num_nodes, node_features).to(device)
         self.victim_model = victim_model.to(device)
         self.beta = beta
@@ -145,7 +150,9 @@ class UnboundAttack:
         self.num_nodes = num_nodes
         self.lambda_degree = lambda_degree
         self.target_degree_dist = target_degree_dist
-        self.epoch_ratio = epoch_ratio
+        self.n_gen = n_gen
+        self.n_critic = n_critic
+        self.lambda_ = lambda_
 
         # Freeze victim model weights
         for param in self.victim_model.parameters():
@@ -155,7 +162,7 @@ class UnboundAttack:
         self.g_optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.0002)
         self.d_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.0002)
     
-    def differentiable_degree_loss(self, adj_batch, sigma=0.5, epsilon=1e-12):
+    def differentiable_degree_loss(self, adj_batch, sigma=0.5):
         """
         Compute a differentiable loss that encourages the generated graphs to have 
         a degree distribution that matches a given target distribution.
@@ -221,10 +228,8 @@ class UnboundAttack:
 
     def train_step(self, batch, target_class):
         batch_size = batch.num_graphs
-        n_critic = 1
-        n_gen = self.epoch_ratio
 
-        for _ in range(n_critic):
+        for _ in range(self.n_critic):
             # ---------------------
             # Train Discriminator
             # ---------------------
@@ -289,7 +294,7 @@ class UnboundAttack:
             d_loss.backward()
             self.d_optimizer.step()
 
-        for _ in range(n_gen):
+        for _ in range(self.n_gen):
             # ---------------------
             # Train Generator
             # ---------------------
@@ -333,18 +338,20 @@ class UnboundAttack:
             adv_loss = F.relu(0.5 - probabilities[:, target_class])
             # adv_loss = F.relu(0.5 - victim_pred[:, target_class])
 
-            total_g_loss = g_loss + self.beta * adv_loss.mean() + self.lambda_degree * degree_loss
+            total_g_loss = self.lambda_*(g_loss + self.beta * adv_loss.mean() + self.lambda_degree * degree_loss)
             total_g_loss.backward()
             self.g_optimizer.step()
 
-            return d_loss.item(), total_g_loss.item()
+        return d_loss.item(), total_g_loss.item()
 
-    def generate_attack(self, num_samples, target_class):
+    def generate_attack(self, num_samples):
         """Generate adversarial graph examples"""
         self.generator.eval()
+        self.generator.set_hard(True)
         with torch.no_grad():
             z = torch.randn(num_samples, self.generator.latent_dim).to(self.device)
             fake_adj, fake_features = self.generator(z)
+        self.generator.set_hard(False)
         return fake_adj, fake_features
 
     def save_models(self, dir):

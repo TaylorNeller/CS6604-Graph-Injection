@@ -14,16 +14,18 @@ from torch_geometric.utils import is_undirected
 
 
 from GraphGAN import UnboundAttack
-from victim import *
+from GCNModel import *
 
 
 batch_size = 1
-latent_dim=1000
-beta=.1
-lambda_degree = 300
+latent_dim=100
+lambda_degree = 1
+beta=0
 epochs = 10
-epoch_ratio=10
-
+n_gen_epochs=1
+n_critic_epochs=5
+lambda_=5
+temperature=.5
 
 # Load the MUTAG dataset
 dataset = TUDataset(root='data/MUTAG', name='MUTAG')
@@ -50,7 +52,19 @@ model.load_state_dict(torch.load('model/victim_model.pth'))
 target_degree_dist = np.load('stats/target_degree_dist.npy')  # shape: [max_degree+1]
 target_degree_dist = torch.tensor(target_degree_dist, dtype=torch.float32).cuda()
 
-# Example usage:
+# Initialize attack framework and hyperparameters
+# attack = UnboundAttack(
+#     latent_dim=latent_dim,
+#     num_nodes=28,  # Set to maximum number of nodes in the dataset
+#     node_features=input_dim,  # dataset.num_features ensures consistency
+#     victim_model=model,
+#     validation_set=test_loader,
+#     device='cuda',
+#     beta=beta,
+#     num_labels=dataset.num_classes,
+#     epoch_ratio=epoch_ratio
+# )
+
 # Initialize attack framework and hyperparameters
 attack = UnboundAttack(
     latent_dim=latent_dim,
@@ -61,7 +75,10 @@ attack = UnboundAttack(
     device='cuda',
     beta=beta,
     lambda_degree=lambda_degree,
-    epoch_ratio=epoch_ratio
+    n_gen=n_gen_epochs,
+    n_critic=n_critic_epochs,
+    lambda_=lambda_,
+    temperature=temperature
 )
 
 # load model
@@ -71,7 +88,9 @@ attack = UnboundAttack(
 for epoch in range(epochs):
     for batch in train_loader:
         batch = batch.to('cuda')
-        d_loss, g_loss = attack.train_step(batch, target_class=0)
+        true_class = batch.y[0].item()
+        d_loss, g_loss = attack.train_step(batch, target_class=true_class)
+        # d_loss, g_loss = attack.train_step(batch)
         print(f'Epoch {epoch}: D_loss {d_loss}, G_loss {g_loss}')
 
 # # Save the trained generator
@@ -79,7 +98,7 @@ attack.save_models('model')
 
 # Generate adversarial examples
 # tensor format
-fake_adj, fake_features = attack.generate_attack(num_samples=10, target_class=0)
+fake_adj, fake_features = attack.generate_attack(num_samples=10)
 # print("Fake Examples:")
 # print("Adjacency matrices:", fake_adj)
 # print("Node features:", fake_features)
@@ -157,5 +176,10 @@ def visualize_adjacency_matrix(tensor, f_name):
     plt.close()
 
 # Call the function with t_adj
-visualize_adjacency_matrix(fake_adj, 'graph_vis_fake.png')
+visualize_adjacency_matrix(fake_adj, 'graph_vis_fake1.png')
+fake_adj = fake_adj[1:]
+visualize_adjacency_matrix(fake_adj, 'graph_vis_fake2.png')
+fake_adj = fake_adj[1:]
+visualize_adjacency_matrix(fake_adj, 'graph_vis_fake3.png')
+
 visualize_adjacency_matrix(real_adj, 'graph_vis_real.png')

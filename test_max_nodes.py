@@ -2,7 +2,7 @@ import torch
 from torch_geometric.datasets import TUDataset
 
 # Load the MUTAG dataset
-dataset = TUDataset(root='data/TUDataset', name='MUTAG')
+dataset = TUDataset(root='data/MUTAG', name='MUTAG')
 
 # Initialize variables to track the largest graph
 max_nodes = 0

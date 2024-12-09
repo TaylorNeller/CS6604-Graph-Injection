@@ -11,10 +11,21 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from torch_geometric.utils import dense_to_sparse
 from torch_geometric.utils import is_undirected
+from collections import Counter
 
 
 from GraphGAN import UnboundAttack
-from victim import *
+from GCNModel import *
+
+n_samples = 50
+n_training_epochs = 50
+
+batch_size = 1
+latent_dim=100
+beta=0
+lambda_degree = 300
+epochs = 3
+epoch_ratio=3
 
 
 # Load the MUTAG dataset
@@ -25,9 +36,12 @@ torch.manual_seed(42)
 dataset = dataset.shuffle()
 train_size = int(len(dataset) * 0.8)
 train_dataset = dataset[:train_size]
-# test_dataset = dataset[train_size:]
+test_dataset = dataset[train_size:]
 # train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-# test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+
+
+
 
 # Initialize the model, optimizer, and loss function
 input_dim = dataset.num_features
@@ -42,20 +56,20 @@ target_degree_dist = torch.tensor(target_degree_dist, dtype=torch.float32).cuda(
 
 # Initialize attack framework and hyperparameters
 attack = UnboundAttack(
-    latent_dim=100,
+    latent_dim=latent_dim,
     num_nodes=28,  # Set to maximum number of nodes in the dataset
     node_features=input_dim,  # dataset.num_features ensures consistency
     victim_model=model,
     target_degree_dist=target_degree_dist,
-    device='cuda',
-    beta=0.1,
-    lambda_degree = 1000.0,
+    device='cuda'
 )
 
 # load model
 attack.load_models('model')
 
-fake_adj, fake_features = attack.generate_attack(num_samples=10, target_class=0)
+fake_adj, fake_features = attack.generate_attack(num_samples=n_samples)
+
+
 
 sample_data = train_dataset[0]
 has_edge_attr = hasattr(sample_data, 'edge_attr')
@@ -85,13 +99,28 @@ for i in range(num_samples):
                                    node_idx_map[int(edge_index[1, i])]] 
                                   for i in range(edge_index.shape[1])]).t()
     
-    # Create y tensor with matching shape
+    # Create a temporary Data object to feed into the model
+    temp_data = Data(x=feat_i, edge_index=new_edge_index)
+    
+    # Predict the label
+    with torch.no_grad():
+        temp_data = temp_data.to('cuda')  # Ensure the data is on the right device
+        temp_data.batch = torch.zeros(temp_data.num_nodes, dtype=torch.long, device='cuda')
+        pred = model(temp_data.x, temp_data.edge_index, temp_data.batch)
+        predicted_label = pred.argmax(dim=1).item()  # Get the predicted label as an integer
+    
+    # Assign a label different from the predicted label
+    num_classes = dataset.num_classes
+    different_label = (predicted_label + 1) % num_classes  # Simple scheme to pick a different label
+    
+    
+    # # Create y tensor with matching shape
     if len(sample_data.y.shape) == 0:
         y = torch.tensor(0)
     else:
         y = torch.zeros_like(sample_data.y)
-        y[0] = 0
-    
+        y[0] = different_label
+
     # Create edge_attr if needed
     if has_edge_attr:
         num_edges = new_edge_index.size(1)
@@ -121,7 +150,32 @@ combined_loader = DataLoader(combined_dataset, batch_size=32, shuffle=True)
 print("Original dataset size:", len(original_data_list))
 print("Combined dataset size:", len(combined_dataset))
 
+# Get the labels
+labels_train = [data.y.item() for data in train_dataset]
+labels_test = [data.y.item() for data in test_dataset]
+labels_adv = [data.y.item() for data in generated_data_list]
+labels_combined = [data.y.item() for data in combined_dataset]
+
+print("Label Distributions\n\n")
+print("Train Dataset:")
+train_dist = Counter(labels_train)
+for label, count in train_dist.items():
+    print(f"Label {label}: {count}")
+print("\nTest Dataset:")
+test_dist = Counter(labels_test)
+for label, count in test_dist.items():
+    print(f"Label {label}: {count}")
+print("\nAdversarial Dataset:")
+adv_dist = Counter(labels_adv)
+for label, count in adv_dist.items():
+    print(f"Label {label}: {count}")
+print("\nCombined Dataset:")
+combined_dist = Counter(labels_combined)
+for label, count in combined_dist.items():
+    print(f"Label {label}: {count}")
+
 trainer = GCNTrainer()
 trainer.train_loader = combined_loader
-trainer.train_eval(20)
+trainer.test_loader = test_loader
+trainer.train_eval(n_training_epochs)
 trainer.save_model('model/victim_model_adv.pth')
