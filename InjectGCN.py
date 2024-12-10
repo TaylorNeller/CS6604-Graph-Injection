@@ -145,6 +145,7 @@ combined_dataset = original_data_list + generated_data_list
 filtered_dataset = filter_outliers(combined_dataset, len(original_data_list))
 
 # combined_dataset = [data.to('cuda') for data in combined_dataset]
+original_loader = DataLoader(original_data_list, batch_size=32, shuffle=True)
 combined_loader = DataLoader(combined_dataset, batch_size=32, shuffle=True)
 filtered_loader = DataLoader(filtered_dataset, batch_size=32, shuffle=True)
 print("Original dataset size:", len(original_data_list))
@@ -181,8 +182,16 @@ for label, count in filtered_dist.items():
     print(f"Label {label}: {count}")
 
 
+# Perform training 
+print("======== Perform training Original ========")
+trainer = GCNTrainer()
+trainer.train_loader = original_loader
+trainer.test_loader = test_loader
+trainer.train_eval(n_training_epochs)
+trainer.save_model('model/original_model_adv.pth')
+
 # Perform training w/o defense
-print("======== Perform training w/o defense ========")
+print("======== Perform training Injected ========")
 trainer = GCNTrainer()
 trainer.train_loader = combined_loader
 trainer.test_loader = test_loader
@@ -190,7 +199,7 @@ trainer.train_eval(n_training_epochs)
 trainer.save_model('model/victim_model_adv.pth')
 
 # Perform training w/ defense
-print("======== Perform training w/  defense ========")
+print("======== Perform training Filtered ========")
 trainer = GCNTrainer()
 trainer.train_loader = filtered_loader
 trainer.test_loader = test_loader
