@@ -146,14 +146,17 @@ filtered_dataset = filter_outliers(combined_dataset, len(original_data_list))
 
 # combined_dataset = [data.to('cuda') for data in combined_dataset]
 combined_loader = DataLoader(combined_dataset, batch_size=32, shuffle=True)
+filtered_loader = DataLoader(filtered_dataset, batch_size=32, shuffle=True)
 print("Original dataset size:", len(original_data_list))
 print("Combined dataset size:", len(combined_dataset))
+print("Filtered dataset size:", len(filtered_dataset))
 
 # Get the labels
 labels_train = [data.y.item() for data in train_dataset]
 labels_test = [data.y.item() for data in test_dataset]
 labels_adv = [data.y.item() for data in generated_data_list]
 labels_combined = [data.y.item() for data in combined_dataset]
+labels_filtered = [data.y.item() for data in filtered_dataset]
 
 print("Label Distributions\n\n")
 print("Train Dataset:")
@@ -172,9 +175,25 @@ print("\nCombined Dataset:")
 combined_dist = Counter(labels_combined)
 for label, count in combined_dist.items():
     print(f"Label {label}: {count}")
+print("\nFiltered Dataset:")
+filtered_dist = Counter(labels_filtered)
+for label, count in filtered_dist.items():
+    print(f"Label {label}: {count}")
 
-# trainer = GCNTrainer()
-# trainer.train_loader = combined_loader
-# trainer.test_loader = test_loader
-# trainer.train_eval(n_training_epochs)
-# trainer.save_model('model/victim_model_adv.pth')
+
+# Perform training w/o defense
+print("======== Perform training w/o defense ========")
+trainer = GCNTrainer()
+trainer.train_loader = combined_loader
+trainer.test_loader = test_loader
+trainer.train_eval(n_training_epochs)
+trainer.save_model('model/victim_model_adv.pth')
+
+# Perform training w/ defense
+print("======== Perform training w/  defense ========")
+trainer = GCNTrainer()
+trainer.train_loader = filtered_loader
+trainer.test_loader = test_loader
+trainer.train_eval(n_training_epochs)
+trainer.save_model('model/filtered_model_adv.pth')
+
