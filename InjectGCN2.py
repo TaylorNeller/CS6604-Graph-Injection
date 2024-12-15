@@ -161,6 +161,11 @@ combined_loader = DataLoader(combined_dataset, batch_size=32, shuffle=True)
 print("Original dataset size:", len(original_data_list))
 print("Combined dataset size:", len(combined_dataset))
 
+# Save the datasets to using torch.save
+torch.save(original_data_list, 'model/PROTEINS_original_data_list.pt')
+torch.save(generated_data_list, 'model/PROTEINS_generated_data_list.pt')
+torch.save(combined_dataset, 'model/PROTEINS_combined_dataset.pt')
+
 # Get the labels
 labels_train = [data.y.item() for data in train_dataset]
 labels_test = [data.y.item() for data in test_dataset]
