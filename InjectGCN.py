@@ -143,6 +143,11 @@ original_data_list = [train_dataset[i] for i in range(len(train_dataset))]
 combined_dataset = original_data_list + generated_data_list
 filtered_dataset = filter_outliers(combined_dataset, len(original_data_list))
 
+# Save the datasets to using torch.save
+torch.save(original_data_list, 'model/original_data_list.pt')
+torch.save(generated_data_list, 'model/generated_data_list.pt')
+torch.save(combined_dataset, 'model/combined_dataset.pt')
+
 # combined_dataset = [data.to('cuda') for data in combined_dataset]
 original_loader = DataLoader(original_data_list, batch_size=32, shuffle=True)
 combined_loader = DataLoader(combined_dataset, batch_size=32, shuffle=True)
