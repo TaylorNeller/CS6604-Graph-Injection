@@ -1,0 +1,93 @@
+#  This one completely destroys the classifier, but the graphs don't look totally real
+batch_size = 1
+latent_dim=100
+lambda_degree = 1
+beta=0
+epochs = 10
+n_gen_epochs=1
+n_critic_epochs=5
+lambda_=5
+temperature=.5
+
+Adversarial Dataset:
+Label 1: 29
+Label 0: 21
+
+# these graphs look a little more decent. haven't tested injection
+batch_size = 1
+latent_dim=100
+lambda_degree = 0
+beta=0
+epochs = 10
+n_gen_epochs=1
+n_critic_epochs=2
+lambda_=1
+temperature=.5
+
+
+# looks ok, not awful
+batch_size = 4
+latent_dim=100
+lambda_degree = 1
+beta=0
+epochs = 10
+n_gen_epochs=1
+n_critic_epochs=4
+lambda_=1
+temperature=.5
+
+
+# looks pretty good actually
+batch_size = 8
+latent_dim=100
+lambda_degree = 1
+beta=0
+epochs = 20
+n_gen_epochs=1
+n_critic_epochs=4
+lambda_=10 # or 15
+temperature=.5
+
+
+batch_size = 8
+latent_dim=100
+lambda_degree = 2
+beta=0
+epochs = 20
+n_gen_epochs=1
+n_critic_epochs=4
+lambda_=15
+temperature=.7
+
+
+################################################## PROTEINS
+batch_size = 1
+latent_dim=100
+lambda_degree = 10
+beta=0
+epochs = 10
+n_gen_epochs=1
+n_critic_epochs=5
+lambda_=10
+temperature=.5
+
+#alright
+batch_size = 8
+latent_dim=100
+lambda_degree = 5
+beta=0
+epochs = 20
+n_gen_epochs=1
+n_critic_epochs=3
+lambda_=30
+temperature=.5
+
+batch_size = 8
+latent_dim=100
+lambda_degree = 0
+beta=0
+epochs = 20
+n_gen_epochs=1
+n_critic_epochs=10
+lambda_=30
+temperature=.5

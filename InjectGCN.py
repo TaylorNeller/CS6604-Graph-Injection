@@ -108,8 +108,7 @@ for i in range(num_samples):
     
     # Assign a label different from the predicted label
     num_classes = dataset.num_classes
-    different_label = (predicted_label + 1) % num_classes  # Simple scheme to pick a different label
-    
+    different_label = (predicted_label) % num_classes  # Simple scheme to pick a different label
     
     # # Create y tensor with matching shape
     if len(sample_data.y.shape) == 0:

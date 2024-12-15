@@ -15,27 +15,34 @@ from torch_geometric.datasets import QM9
 
 
 from GraphGAN import UnboundAttack
-from GCNModel import *
+from GCNModel2 import *
 
-batch_size = 1
-latent_dim = 100
-lambda_degree = 1
-beta = 0
-epochs = 1
-n_gen_epochs = 1
-n_critic_epochs = 1
-lambda_ = 5
-temperature = .5
+batch_size = 8
+latent_dim=100
+lambda_degree = 5
+beta=0
+epochs = 20
+n_gen_epochs=1
+n_critic_epochs=3
+lambda_=30
+temperature=.5
+
+
 
 # Load the MUTAG dataset
-dataset = TUDataset(root='data/MUTAG', name='MUTAG')
+dataset = TUDataset(root='data/PROTEINS', name='PROTEINS')  
 max_nodes = 28
-target_degree_dist = np.load('stats/mutag_degree_dist.npy')  # shape: [max_degree+1]
+target_degree_dist = np.load('stats/target_degree_dist.npy')  # shape: [max_degree+1]
 
 # Shuffle and split the dataset into training and test sets
 torch.manual_seed(45)
 dataset = dataset.shuffle()
-train_size = int(len(dataset) * 0.1)
+input_dim = dataset.num_features
+n_classes = dataset.num_classes
+dataset = [data for data in dataset if data.num_nodes <= max_nodes]
+dataset = dataset[:188]
+
+train_size = int(len(dataset) * 0.8)
 print('train_size:', train_size)
 train_dataset = dataset[:train_size]
 test_dataset = dataset[train_size:]
@@ -45,10 +52,9 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 # Initialize the model, optimizer, and loss function
-input_dim = dataset.num_features
 
 # load model from file
-model = GCN(input_dim, 64, dataset.num_classes)
+model = GCN(input_dim, 64, n_classes)
 model.load_state_dict(torch.load('model/victim_model.pth'))
 
 # load degree distribution
@@ -58,7 +64,7 @@ target_degree_dist = torch.tensor(target_degree_dist, dtype=torch.float32).cuda(
 attack = UnboundAttack(
     latent_dim=latent_dim,
     num_nodes=max_nodes,  # Set to maximum number of nodes in the dataset
-    node_features=input_dim,  # dataset.num_features ensures consistency
+    node_features=input_dim, 
     victim_model=model,
     target_degree_dist=target_degree_dist,
     device='cuda',

@@ -5,16 +5,20 @@ from torch_geometric.datasets import TUDataset
 from torch_geometric.data import DataLoader
 from torch_geometric.utils import to_dense_adj
 import os
+from torch_geometric.datasets import QM9
 
-# Parameters (ensure these match what's used in your training code)
-DATA_ROOT = 'data/MUTAG'
-DATASET_NAME = 'MUTAG'
+# # Parameters (ensure these match what's used in your training code)
+DATA_ROOT = 'data/PROTEINS'
+DATASET_NAME = 'PROTEINS'
 MAX_NUM_NODES = 28  # same as used in the generator and victim code
 CLUST_BINS = np.linspace(0, 1, 11)  # 10 bins for clustering coefficient
 
-# Load dataset
+# # Load dataset
 dataset = TUDataset(root=DATA_ROOT, name=DATASET_NAME)
 dataset = dataset.shuffle()
+dataset = [data for data in dataset if data.num_nodes <= MAX_NUM_NODES]
+dataset = dataset[:188]
+
 train_size = int(len(dataset) * 1)
 train_dataset = dataset[:train_size]
 

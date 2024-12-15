@@ -4,55 +4,64 @@ import torch.nn.functional as F
 from torch_geometric.data import DataLoader
 from torch_geometric.datasets import TUDataset
 from torch_geometric.nn import GCNConv, global_mean_pool
+from torch.nn import Linear
 
 # Define the GCN model
 class GCN(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(GCN, self).__init__()
         self.conv1 = GCNConv(input_dim, hidden_dim)
-        self.conv2 = GCNConv(hidden_dim, hidden_dim)
-        self.fc = torch.nn.Linear(hidden_dim, output_dim)
-    
+        self.conv2 = GCNConv(hidden_dim, hidden_dim*2)
+        self.conv3 = GCNConv(hidden_dim*2, hidden_dim)
+        self.fc1 = Linear(hidden_dim, hidden_dim)
+        self.fc2 = Linear(hidden_dim, output_dim)
+
     def forward(self, x, edge_index, batch):
-        # Apply graph convolutions
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = self.conv2(x, edge_index)
-        x = F.relu(x)
-        
-        # Apply global mean pooling
+        # Apply GCN layers with ReLU activation
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index))
+        x = F.relu(self.conv3(x, edge_index))
+
+        # Global mean pooling to aggregate graph-level representations
         x = global_mean_pool(x, batch)
-        
-        # Apply the final linear layer
-        x = self.fc(x)
+
+        # Fully connected layers
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
         return F.log_softmax(x, dim=1)
 
 class GCNTrainer():
     def __init__(self, model=None, optimizer=None, criterion=None, train_loader=None, test_loader=None):
         if model is None:
-            # Load the MUTAG dataset
-            dataset = TUDataset(root='data/MUTAG', name='MUTAG')
-
-            # Shuffle and split the dataset into training and test sets
+            # Load the PROTEINS dataset
+            dataset = TUDataset(root='data/PROTEINS', name='PROTEINS')
+            n_features = dataset.num_features
+            n_classes = dataset.num_classes
             torch.manual_seed(42)
             dataset = dataset.shuffle()
+
+            dataset = [data for data in dataset if data.num_nodes <= 28]
+            dataset = dataset[:188]
+
+
+            # Split the dataset into training and test sets
             train_size = int(len(dataset) * 0.8)
             test_size = len(dataset) - train_size
-            # test_size = int(len(dataset) * 0.05)
             train_dataset = [data.to('cuda') for data in dataset[:train_size]]
-            test_dataset = [data.to('cuda') for data in dataset[0:test_size]]
+            test_dataset = [data.to('cuda') for data in dataset[train_size:]]
+
             # Create data loaders
             self.train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
             self.test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
             # Initialize the model, optimizer, and loss function
-            input_dim = dataset.num_features
+            input_dim = n_features
             hidden_dim = 64
-            output_dim = dataset.num_classes #MUTAG
+            output_dim = n_classes
 
             self.model = GCN(input_dim, hidden_dim, output_dim)
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.01, weight_decay=5e-4)
-            self.criterion = torch.nn.NLLLoss() #MUTAG
+            self.criterion = torch.nn.NLLLoss()  # Suitable for multi-class classification tasks
 
         else:
             self.model = model
@@ -106,5 +115,5 @@ class GCNTrainer():
 if __name__ == '__main__':
     # Train and evaluate the model
     trainer = GCNTrainer()
-    trainer.train_eval(20)
+    trainer.train_eval(50)
     trainer.save_model()

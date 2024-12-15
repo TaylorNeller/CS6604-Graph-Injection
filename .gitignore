@@ -9,11 +9,18 @@ stats/*
 
 
 archive/
+graphs/
+graphs_PROTEINS/
 model_backup/
+model_copy/
+model_copy2/
+model_mutag_final/
 __pycache__/
 *.pyc
 *.pyo
 
 todo
+hyperparameter_snippets.txt
+train2.sh
 
 /graph_vis*

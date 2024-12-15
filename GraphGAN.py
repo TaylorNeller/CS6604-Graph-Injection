@@ -148,6 +148,7 @@ class UnboundAttack:
         self.beta = beta
         self.device = device
         self.num_nodes = num_nodes
+        self.num_features = node_features
         self.lambda_degree = lambda_degree
         self.target_degree_dist = target_degree_dist
         self.n_gen = n_gen
