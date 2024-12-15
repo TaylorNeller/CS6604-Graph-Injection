@@ -10,6 +10,8 @@ from torch_geometric.datasets import QM9
 # # Parameters (ensure these match what's used in your training code)
 DATA_ROOT = 'data/PROTEINS'
 DATASET_NAME = 'PROTEINS'
+# DATA_ROOT = 'data/MUTAG'
+# DATASET_NAME = 'MUTAG'
 MAX_NUM_NODES = 28  # same as used in the generator and victim code
 CLUST_BINS = np.linspace(0, 1, 11)  # 10 bins for clustering coefficient
 

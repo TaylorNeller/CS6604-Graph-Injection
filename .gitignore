@@ -20,7 +20,6 @@ __pycache__/
 *.pyo
 
 todo
-hyperparameter_snippets.txt
 train2.sh
 
 /graph_vis*
