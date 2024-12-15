@@ -30,7 +30,7 @@ temperature = .5
 # Load the MUTAG dataset
 dataset = TUDataset(root='data/MUTAG', name='MUTAG')
 max_nodes = 28
-target_degree_dist = np.load('stats/mutag_degree_dist.npy')  # shape: [max_degree+1]
+target_degree_dist = np.load('stats/target_degree_dist.npy')  # shape: [max_degree+1]
 
 # Shuffle and split the dataset into training and test sets
 torch.manual_seed(45)
